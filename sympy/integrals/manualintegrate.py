@@ -69,6 +69,10 @@ from sympy.utilities.iterables import iterable
 from sympy.utilities.misc import debug
 
 
+global_rule_stack = []
+global_output_stack = []
+
+
 @dataclass
 class Rule(ABC):
     integrand: Expr
@@ -94,6 +98,7 @@ class AtomicRule(Rule, ABC):
 class ConstantRule(AtomicRule):
     """integrate(a, x)  ->  a*x"""
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return self.integrand * self.variable
 
 
@@ -105,6 +110,7 @@ class ConstantTimesRule(Rule):
     substep: Rule
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return self.constant * self.substep.eval()
 
     def contains_dont_know(self) -> bool:
@@ -118,6 +124,7 @@ class PowerRule(AtomicRule):
     exp: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return Piecewise(
             ((self.base**(self.exp + 1))/(self.exp + 1), Ne(self.exp, -1)),
             (log(self.base), True),
@@ -131,6 +138,7 @@ class NestedPowRule(AtomicRule):
     exp: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         m = self.base * self.integrand
         return Piecewise((m / (self.exp + 1), Ne(self.exp, -1)),
                          (m * log(self.base), True))
@@ -142,6 +150,7 @@ class AddRule(Rule):
     substeps: list[Rule]
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return Add(*(substep.eval() for substep in self.substeps))
 
     def contains_dont_know(self) -> bool:
@@ -156,6 +165,7 @@ class URule(Rule):
     substep: Rule
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         result = self.substep.eval()
         if self.u_func.is_Pow:
             base, exp_ = self.u_func.as_base_exp()
@@ -177,6 +187,7 @@ class PartsRule(Rule):
     second_step: Rule | None  # None when is a substep of CyclicPartsRule
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         assert self.second_step is not None
         v = self.v_step.eval()
         return self.u * v - self.second_step.eval()
@@ -193,6 +204,7 @@ class CyclicPartsRule(Rule):
     coefficient: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         result = []
         sign = 1
         for rule in self.parts_rules:
@@ -213,6 +225,7 @@ class TrigRule(AtomicRule, ABC):
 class SinRule(TrigRule):
     """integrate(sin(x), x) -> -cos(x)"""
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return -cos(self.variable)
 
 
@@ -220,6 +233,7 @@ class SinRule(TrigRule):
 class CosRule(TrigRule):
     """integrate(cos(x), x) -> sin(x)"""
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return sin(self.variable)
 
 
@@ -227,6 +241,7 @@ class CosRule(TrigRule):
 class SecTanRule(TrigRule):
     """integrate(sec(x)*tan(x), x) -> sec(x)"""
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return sec(self.variable)
 
 
@@ -234,6 +249,7 @@ class SecTanRule(TrigRule):
 class CscCotRule(TrigRule):
     """integrate(csc(x)*cot(x), x) -> -csc(x)"""
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return -csc(self.variable)
 
 
@@ -241,6 +257,7 @@ class CscCotRule(TrigRule):
 class Sec2Rule(TrigRule):
     """integrate(sec(x)**2, x) -> tan(x)"""
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return tan(self.variable)
 
 
@@ -248,6 +265,7 @@ class Sec2Rule(TrigRule):
 class Csc2Rule(TrigRule):
     """integrate(csc(x)**2, x) -> -cot(x)"""
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return -cot(self.variable)
 
 
@@ -260,6 +278,7 @@ class HyperbolicRule(AtomicRule, ABC):
 class SinhRule(HyperbolicRule):
     """integrate(sinh(x), x) -> cosh(x)"""
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return cosh(self.variable)
 
 
@@ -277,6 +296,7 @@ class ExpRule(AtomicRule):
     exp: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return self.integrand / log(self.base)
 
 
@@ -286,6 +306,7 @@ class ReciprocalRule(AtomicRule):
     base: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return log(self.base)
 
 
@@ -293,6 +314,7 @@ class ReciprocalRule(AtomicRule):
 class ArcsinRule(AtomicRule):
     """integrate(1/sqrt(1-x**2), x) -> asin(x)"""
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return asin(self.variable)
 
 
@@ -300,6 +322,7 @@ class ArcsinRule(AtomicRule):
 class ArcsinhRule(AtomicRule):
     """integrate(1/sqrt(1+x**2), x) -> asin(x)"""
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return asinh(self.variable)
 
 
@@ -311,6 +334,7 @@ class ReciprocalSqrtQuadraticRule(AtomicRule):
     c: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, b, c, x = self.a, self.b, self.c, self.variable
         return log(2*sqrt(c)*sqrt(a+b*x+c*x**2)+b+2*c*x)/sqrt(c)
 
@@ -324,6 +348,7 @@ class SqrtQuadraticDenomRule(AtomicRule):
     coeffs: list[Expr]
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, b, c, coeffs, x = self.a, self.b, self.c, self.coeffs.copy(), self.variable
         # Integrate poly/sqrt(a+b*x+c*x**2) using recursion.
         # coeffs are coefficients of the polynomial.
@@ -359,6 +384,7 @@ class SqrtQuadraticRule(AtomicRule):
     c: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         step = sqrt_quadratic_rule(IntegralInfo(self.integrand, self.variable), degenerate=False)
         return step.eval()
 
@@ -369,6 +395,7 @@ class AlternativeRule(Rule):
     alternatives: list[Rule]
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return self.alternatives[0].eval()
 
     def contains_dont_know(self) -> bool:
@@ -379,6 +406,7 @@ class AlternativeRule(Rule):
 class DontKnowRule(Rule):
     """Leave the integral as is."""
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return Integral(self.integrand, self.variable)
 
     def contains_dont_know(self) -> bool:
@@ -389,6 +417,7 @@ class DontKnowRule(Rule):
 class DerivativeRule(AtomicRule):
     """integrate(f'(x), x) -> f(x)"""
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         assert isinstance(self.integrand, Derivative)
         variable_count = list(self.integrand.variable_count)
         for i, (var, count) in enumerate(variable_count):
@@ -405,6 +434,7 @@ class RewriteRule(Rule):
     substep: Rule
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return self.substep.eval()
 
     def contains_dont_know(self) -> bool:
@@ -422,6 +452,7 @@ class PiecewiseRule(Rule):
     subfunctions: Sequence[tuple[Rule, bool | Boolean]]
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return Piecewise(*[(substep.eval(), cond)
                            for substep, cond in self.subfunctions])
 
@@ -436,6 +467,7 @@ class HeavisideRule(Rule):
     substep: Rule
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         # If we are integrating over x and the integrand has the form
         #       Heaviside(m*x+b)*g(x) == Heaviside(harg)*g(symbol)
         # then there needs to be continuity at -b/m == ibnd,
@@ -454,6 +486,7 @@ class DiracDeltaRule(AtomicRule):
     b: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         n, a, b, x = self.n, self.a, self.b, self.variable
         if n == 0:
             return Heaviside(a+b*x)/b
@@ -469,6 +502,7 @@ class TrigSubstitutionRule(Rule):
     restriction: bool | Boolean
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         theta, func, x = self.theta, self.func, self.variable
         func = func.subs(sec(theta), 1/cos(theta))
         func = func.subs(csc(theta), 1/sin(theta))
@@ -519,6 +553,7 @@ class ArctanRule(AtomicRule):
     c: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, b, c, x = self.a, self.b, self.c, self.variable
         return a/b / sqrt(c/b) * atan(x/sqrt(c/b))
 
@@ -534,6 +569,7 @@ class JacobiRule(OrthogonalPolyRule):
     b: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         n, a, b, x = self.n, self.a, self.b, self.variable
         return Piecewise(
             (2*jacobi(n + 1, a - 1, b - 1, x)/(n + a + b), Ne(n + a + b, 0)),
@@ -546,6 +582,7 @@ class GegenbauerRule(OrthogonalPolyRule):
     a: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         n, a, x = self.n, self.a, self.variable
         return Piecewise(
             (gegenbauer(n + 1, a - 1, x)/(2*(a - 1)), Ne(a, 1)),
@@ -556,6 +593,7 @@ class GegenbauerRule(OrthogonalPolyRule):
 @dataclass
 class ChebyshevTRule(OrthogonalPolyRule):
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         n, x = self.n, self.variable
         return Piecewise(
             ((chebyshevt(n + 1, x)/(n + 1) -
@@ -566,6 +604,7 @@ class ChebyshevTRule(OrthogonalPolyRule):
 @dataclass
 class ChebyshevURule(OrthogonalPolyRule):
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         n, x = self.n, self.variable
         return Piecewise(
             (chebyshevt(n + 1, x)/(n + 1), Ne(n, -1)),
@@ -575,6 +614,7 @@ class ChebyshevURule(OrthogonalPolyRule):
 @dataclass
 class LegendreRule(OrthogonalPolyRule):
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         n, x = self.n, self.variable
         return(legendre(n + 1, x) - legendre(n - 1, x))/(2*n + 1)
 
@@ -582,6 +622,7 @@ class LegendreRule(OrthogonalPolyRule):
 @dataclass
 class HermiteRule(OrthogonalPolyRule):
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         n, x = self.n, self.variable
         return hermite(n + 1, x)/(2*(n + 1))
 
@@ -589,6 +630,7 @@ class HermiteRule(OrthogonalPolyRule):
 @dataclass
 class LaguerreRule(OrthogonalPolyRule):
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         n, x = self.n, self.variable
         return laguerre(n, x) - laguerre(n + 1, x)
 
@@ -598,6 +640,7 @@ class AssocLaguerreRule(OrthogonalPolyRule):
     a: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return -assoc_laguerre(self.n + 1, self.a - 1, self.variable)
 
 
@@ -610,6 +653,7 @@ class IRule(AtomicRule, ABC):
 @dataclass
 class CiRule(IRule):
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, b, x = self.a, self.b, self.variable
         return cos(b)*Ci(a*x) - sin(b)*Si(a*x)
 
@@ -617,6 +661,7 @@ class CiRule(IRule):
 @dataclass
 class ChiRule(IRule):
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, b, x = self.a, self.b, self.variable
         return cosh(b)*Chi(a*x) + sinh(b)*Shi(a*x)
 
@@ -624,6 +669,7 @@ class ChiRule(IRule):
 @dataclass
 class EiRule(IRule):
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, b, x = self.a, self.b, self.variable
         return exp(b)*Ei(a*x)
 
@@ -631,6 +677,7 @@ class EiRule(IRule):
 @dataclass
 class SiRule(IRule):
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, b, x = self.a, self.b, self.variable
         return sin(b)*Ci(a*x) + cos(b)*Si(a*x)
 
@@ -638,6 +685,7 @@ class SiRule(IRule):
 @dataclass
 class ShiRule(IRule):
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, b, x = self.a, self.b, self.variable
         return sinh(b)*Chi(a*x) + cosh(b)*Shi(a*x)
 
@@ -645,6 +693,7 @@ class ShiRule(IRule):
 @dataclass
 class LiRule(IRule):
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, b, x = self.a, self.b, self.variable
         return li(a*x + b)/a
 
@@ -656,6 +705,7 @@ class ErfRule(AtomicRule):
     c: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, b, c, x = self.a, self.b, self.c, self.variable
         if a.is_extended_real:
             return Piecewise(
@@ -674,6 +724,7 @@ class FresnelCRule(AtomicRule):
     c: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, b, c, x = self.a, self.b, self.c, self.variable
         return sqrt(S.Pi)/sqrt(2*a) * (
             cos(b**2/(4*a) - c)*fresnelc((2*a*x + b)/sqrt(2*a*S.Pi)) +
@@ -687,6 +738,7 @@ class FresnelSRule(AtomicRule):
     c: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, b, c, x = self.a, self.b, self.c, self.variable
         return sqrt(S.Pi)/sqrt(2*a) * (
             cos(b**2/(4*a) - c)*fresnels((2*a*x + b)/sqrt(2*a*S.Pi)) -
@@ -699,6 +751,7 @@ class PolylogRule(AtomicRule):
     b: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return polylog(self.b + 1, self.a * self.variable)
 
 
@@ -708,6 +761,7 @@ class UpperGammaRule(AtomicRule):
     e: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         a, e, x = self.a, self.e, self.variable
         return x**e * (-a*x)**(-e) * uppergamma(e + 1, -a*x)/a
 
@@ -718,6 +772,7 @@ class EllipticFRule(AtomicRule):
     d: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return elliptic_f(self.variable, self.d/self.a)/sqrt(self.a)
 
 
@@ -727,6 +782,7 @@ class EllipticERule(AtomicRule):
     d: Expr
 
     def eval(self) -> Expr:
+        global_rule_stack.append('[' + str(self.__class__.__name__) + ']')
         return elliptic_e(self.variable, self.d/self.a)*sqrt(self.a)
 
 

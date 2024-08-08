@@ -7122,7 +7122,7 @@ def nth_power_roots_poly(f, n, *gens, **args):
 
 
 @public
-def cancel(f, *gens, _signsimp=True, **args):
+def cancel(f, *gens, _signsimp=True, history=[], **args):
     """
     Cancel common factors in a rational function ``f``.
 
@@ -7150,9 +7150,23 @@ def cancel(f, *gens, _signsimp=True, **args):
     from sympy.polys.rings import sring
     options.allowed_flags(args, ['polys'])
 
+    history = None
+    if history is None:
+        history = []
+
+    def record_history(expr):
+        """Record the expression if it's not already the last in history."""
+        if not history or expr != history[-1]:
+            history.append(expr)
+            # print('history:', history)
+
+
+    record_history(f)
     f = sympify(f)
+    record_history(f)
     if _signsimp:
         f = signsimp(f)
+        record_history(f)
     opt = {}
     if 'polys' in args:
         opt['polys'] = args['polys']
@@ -7161,6 +7175,7 @@ def cancel(f, *gens, _signsimp=True, **args):
         if f.is_Number or isinstance(f, Relational) or not isinstance(f, Expr):
             return f
         f = factor_terms(f, radical=True)
+        record_history(f)
         p, q = f.as_numer_denom()
 
     elif len(f) == 2:

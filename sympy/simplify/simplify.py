@@ -1,5 +1,6 @@
 from collections import defaultdict
 
+import sympy.core.traversal
 from sympy.concrete.products import Product
 from sympy.concrete.summations import Sum
 from sympy.core import (Basic, S, Add, Mul, Pow, Symbol, sympify,
@@ -44,6 +45,9 @@ from sympy.utilities.iterables import has_variety, sift, subsets, iterable
 from sympy.utilities.misc import as_int
 
 import mpmath
+
+modifications_log = []
+
 
 
 def separatevars(expr, symbols=[], dict=False, force=False):
@@ -417,7 +421,43 @@ def signsimp(expr, evaluate=None):
     return e
 
 
-def simplify(expr, ratio=1.7, measure=count_ops, rational=False, inverse=False, doit=True, **kwargs):
+
+from copy import deepcopy
+def parse_bottom_up(expr, bh):
+    print('\n\nParsing Bottom Up For:', str(expr))
+    bu_steps = []  # Each step will have a unique list of terms, and relationships between terms
+    last_step = None
+    prev_terms = []
+    for key in sorted(bh.keys()):  # Iterate over the depth of recursion, and print the expression at each depth
+        layer_terms = deepcopy(prev_terms)
+        if key == 0:
+            val = bh[key][0][1]  # There will only be one entry here
+            layer_terms = [val]
+        else:
+            layer_dict = {}  # For each layer, map the parent to the children terms
+            for v in bh[key]:
+                v_parent = v[0]
+                v_result = v[1]
+                if v_parent not in layer_dict:
+                    layer_dict[v_parent] = []
+                layer_dict[v_parent].append(v_result)
+
+            for parent, children in layer_dict.items():
+                children_str = ' '.join([str(c) for c in children])
+                # replace parent with children_str in last_step
+                last_step = last_step.replace(str(parent), children_str)
+                bu_steps.append(last_step)
+
+
+
+        prev_terms = layer_terms
+
+        # bu_steps.append(layer_terms)
+
+    for bs in bu_steps:
+        print('Bottom Up Step:', bs)
+
+def simplify(expr, ratio=1.7, measure=count_ops, rational=False, inverse=False, doit=True, history=[], **kwargs):
     """Simplifies the given expression.
 
     Explanation
@@ -591,7 +631,9 @@ def simplify(expr, ratio=1.7, measure=count_ops, rational=False, inverse=False, 
         "measure": kwargs.get('measure', measure),
         "rational": kwargs.get('rational', rational),
         "inverse": kwargs.get('inverse', inverse),
-        "doit": kwargs.get('doit', doit)}
+        "doit": kwargs.get('doit', doit),
+        "history": kwargs.get('history', history),
+    }
     # no routine for Expr needs to check for is_zero
     if isinstance(expr, Expr) and expr.is_zero:
         return S.Zero if not expr.is_Number else expr
@@ -639,9 +681,22 @@ def simplify(expr, ratio=1.7, measure=count_ops, rational=False, inverse=False, 
         floats = True
         expr = nsimplify(expr, rational=True)
 
-    expr = _bottom_up(expr, lambda w: getattr(w, 'normal', lambda: w)())
+    # print('BEFORE CANCEL:', str(expr))
+    bh = {}
+    expr_prev = expr
+    expr = _bottom_up(expr, lambda w: getattr(w, 'normal', lambda: w)(), log=bh)
+
+    # for key, val in bh.items():
+    #     print('Depth:', key, '|', val)
+    # if bh:
+    #     parse_bottom_up(expr_prev, bh)
+    # print('BEFORE CANCEL:', str(expr))
     expr = Mul(*powsimp(expr).as_content_primitive())
+    # print('BEFORE CANCEL:', str(expr))
     _e = cancel(expr)
+    # print('AFTER CANCEL:', _e)
+
+
     expr1 = shorter(_e, _mexpand(_e).cancel())  # issue 6829
     expr2 = shorter(together(expr, deep=True), together(expr1, deep=True))
 

@@ -40,8 +40,69 @@ def _corem(eq, c):  # helper for extract_additively
     return Add(*co), Add(*non)
 
 
+
+
+class CustomMeta(type):
+    def __new__(cls, name, bases, dct):
+        for key, value in dct.items():
+            if callable(value):
+                # Replace the original method with a wrapped method
+                dct[key] = cls.wrap_method(key, value)
+        return super().__new__(cls, name, bases, dct)
+
+    @staticmethod
+    def wrap_method(name, method):
+        def wrapped(self, *args, **kwargs):
+            print(f"Calling method '{name}'...")
+            return method(self, *args, **kwargs)
+        return wrapped
+
+# def wrap_method(method):
+#     def wrapped(*args, **kwargs):
+#         print(f"Calling {method.__name__} with args={args}, kwargs={kwargs}")
+#         result = method(*args, **kwargs)
+#         print(f"{method.__name__} returned {result}")
+#         return result
+#     return wrapped
+#
+# class WrapperMeta(type):
+#     def __new__(cls, name, bases, attrs):
+#         for attr_name, attr_value in attrs.items():
+#             if callable(attr_value):
+#                 attrs[attr_name] = wrap_method(attr_value)
+#         return super().__new__(cls, name, bases, attrs)
+#
+# class IntermediateExpr(Basic, metaclass=WrapperMeta):
+#     def __new__(cls, *args, **kwargs):
+#         instance = super().__new__(cls, *args, **kwargs)
+#         return instance
+
+# class IntermediateExpr(Basic):
+#     def __new__(cls, *args, **kwargs):
+#         # Create the instance using Basic's __new__
+#         instance = super().__new__(cls, *args, **kwargs)
+#         # print('-NEW INTERMEDIATE EXPR-')
+#         return instance
+#
+#     def __add__(self, other):
+#         result = super().__add__(other)
+#         print(f"Adding: {self} + {other}")
+#         return result
+#
+#     def __mul__(self, other):
+#         result = super().__mul__(other)
+#         print(f"Multiplying: {self} * {other}")
+#         return result
+
+    # Override other methods as needed to include print statements or additional logic
+
+
+
+
 @sympify_method_args
 class Expr(Basic, EvalfMixin):
+# class Expr(IntermediateExpr, EvalfMixin):
+
     """
     Base class for algebraic expressions.
 
@@ -63,6 +124,8 @@ class Expr(Basic, EvalfMixin):
 
     sympy.core.basic.Basic
     """
+
+
 
     __slots__: tuple[str, ...] = ()
 

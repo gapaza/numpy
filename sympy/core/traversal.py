@@ -2,7 +2,7 @@ from .basic import Basic
 from .sorting import ordered
 from .sympify import sympify
 from sympy.utilities.iterables import iterable
-
+import sympy
 
 
 def iterargs(expr):
@@ -219,17 +219,65 @@ def walk(e, *target):
             yield from walk(i, *target)
 
 
-def bottom_up(rv, F, atoms=False, nonbasic=False):
-    """Apply ``F`` to all expressions in an expression tree from the
-    bottom up. If ``atoms`` is True, apply ``F`` even if there are no args;
-    if ``nonbasic`` is True, try to apply ``F`` to non-Basic objects.
+# def bottom_up(rv, F, atoms=False, nonbasic=False):
+#     """Apply ``F`` to all expressions in an expression tree from the
+#     bottom up. If ``atoms`` is True, apply ``F`` even if there are no args;
+#     if ``nonbasic`` is True, try to apply ``F`` to non-Basic objects.
+#     """
+#     print('BOTTOM UP OP:', rv)
+#     args = getattr(rv, 'args', None)
+#     if args is not None:
+#         if args:
+#             args = tuple([bottom_up(a, F, atoms, nonbasic) for a in args])
+#             if args != rv.args:
+#                 rv = rv.func(*args)
+#             rv = F(rv)
+#         elif atoms:
+#             rv = F(rv)
+#     else:
+#         if nonbasic:
+#             try:
+#                 rv = F(rv)
+#             except TypeError:
+#                 pass
+#
+#     return rv
+
+from copy import deepcopy
+
+
+
+def bottom_up(rv, F, atoms=False, nonbasic=False, log={}, d=0, p=''):
+    """Apply `F` to all expressions in an expression tree from the
+    bottom up. If `atoms` is True, apply `F` even if there are no args;
+    if `nonbasic` is True, try to apply `F` to non-Basic objects.
     """
+    depth = d
     args = getattr(rv, 'args', None)
+
+    # if args is not None:
+    #     print('SUB EXPR:', args[0], rv.func, args[1])
+        # combined = ...
+
+
+    # print('BOTTOM UP OP', depth,':', rv, '|', args, '|', [sympy.srepr(a) for a in args], '|', type(rv.func), '|')
+
+    if d not in log:
+        log[d] = []
+    # log[d].append(deepcopy(sympy.srepr(rv)))
+    entry = (
+        p,
+        rv,
+    )
+    log[d].append(entry)
+
     if args is not None:
         if args:
-            args = tuple([bottom_up(a, F, atoms, nonbasic) for a in args])
-            if args != rv.args:
-                rv = rv.func(*args)
+            new_args = [bottom_up(a, F, atoms, nonbasic, log=log, d=d+1, p=rv) for a in args]
+            # print('NEW ARGS:', [sympy.srepr(na) for na in new_args])
+            if tuple(new_args) != rv.args:
+                new_expr = rv.func(*new_args)
+                rv = new_expr
             rv = F(rv)
         elif atoms:
             rv = F(rv)
@@ -241,6 +289,42 @@ def bottom_up(rv, F, atoms=False, nonbasic=False):
                 pass
 
     return rv
+
+#
+# reduction_steps = []
+#
+# def log_step(original, modified):
+#     if original != modified:
+#         reduction_steps.append((original, modified))
+#
+# def bottom_up(rv, F, atoms=False, nonbasic=False, log=[], d=0):
+#     """Apply `F` to all expressions in an expression tree from the
+#     bottom up. If `atoms` is True, apply `F` even if there are no args;
+#     if `nonbasic` is True, try to apply `F` to non-Basic objects.
+#     """
+#     args = getattr(rv, 'args', None)
+#     if args is not None:
+#         if args:
+#             new_args = [bottom_up(a, F, atoms, nonbasic) for a in args]
+#             if tuple(new_args) != rv.args:
+#                 new_expr = rv.func(*new_args)
+#                 log_step(rv, new_expr)
+#                 rv = new_expr
+#             new_rv = F(rv)
+#             log_step(rv, new_rv)
+#             rv = new_rv
+#         elif atoms:
+#             new_rv = F(rv)
+#             log_step(rv, new_rv)
+#             rv = new_rv
+#     else:
+#         if nonbasic:
+#             try:
+#                 new_rv = F(rv)
+#                 log_step(rv, new_rv)
+#                 rv = new_rv
+#             except TypeError:
+#                 pass
 
 
 def postorder_traversal(node, keys=None):
